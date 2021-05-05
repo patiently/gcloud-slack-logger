@@ -92,13 +92,15 @@ class PubSubEventListener : BackgroundFunction<PubSubMessage> {
         val message = logEntry.jsonPayload?.get("message")?.asString
         val textPayload = logEntry.textPayload
         val projectId = logEntry.resource.labels?.get("project_id")
+        val snippetMessage = logEntry.jsonPayload?.get("message")?.asString
+            ?: logEntry.textPayload
         val consoleTraceLink = logEntry.trace?.split("/")?.last()
             ?.let {
                 "https://console.cloud.google.com/traces/list?project=$projectId&tid=$it"
             }
         val cloudConsoleLink = "https://console.cloud.google.com/logs/query;query=insertId%3D%22${logEntry.insertId}%22;timeRange=P7D?project=$projectId"
-        val slackMessage = SlackMessage(
-            text = null,
+        return SlackMessage(
+            text = snippetMessage?.take(160),
             channel = slackConfig.slackChannel,
             iconEmoji = getEmoji(logEntry),
             blocks = mutableListOf(
@@ -135,7 +137,7 @@ class PubSubEventListener : BackgroundFunction<PubSubMessage> {
                                 shortValue = false
                             )
                         ).also { list ->
-                            message?.let { message ->
+                            message?.let<String, Unit> { message ->
                                 list.add(
                                     Field(
                                         title = "Message",
@@ -186,7 +188,6 @@ class PubSubEventListener : BackgroundFunction<PubSubMessage> {
                     )
             )
         )
-        return slackMessage
     }
 
     private fun generateFields(logEntry: LogEntry): List<Field> {
@@ -235,8 +236,8 @@ class PubSubEventListener : BackgroundFunction<PubSubMessage> {
         LogSeverity.DEBUG,
         LogSeverity.NOTICE,
         LogSeverity.INFO -> "#339900"
-        LogSeverity.WARNING,
-        LogSeverity.ERROR -> "#DAA520"
+        LogSeverity.WARNING -> "#DAA520"
+        LogSeverity.ERROR -> "#8e2300"
         LogSeverity.ALERT -> "#cc3300"
         null -> "#cc3300"
     }
