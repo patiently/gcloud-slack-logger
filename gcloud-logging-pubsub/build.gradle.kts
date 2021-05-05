@@ -5,5 +5,6 @@ dependencies {
     implementation(project(":victorops-client"))
     implementation("com.google.code.gson:gson")
     implementation("com.google.cloud.functions:functions-framework-api:$functionsFrameworkApiVersion")
-    testImplementation("org.junit.jupiter:junit-jupiter-api")
+    testImplementation(platform("org.junit:junit-bom"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
 }

@@ -9,7 +9,7 @@ import org.kodein.di.instance
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
-class SlackClient(override val di: DI): DIAware{
+class SlackClient(override val di: DI) : DIAware {
 
     private val config: SlackConfig by instance()
 

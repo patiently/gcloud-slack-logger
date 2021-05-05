@@ -84,7 +84,7 @@ class PubSubEventListener : BackgroundFunction<PubSubMessage> {
                     text = null,
                     pretext = null,
                 ),
-                logEntry.jsonPayload?.get("extension")?.asString?.let {
+                logEntry.jsonPayload?.get("exception")?.asString?.let {
                     SlackMessageAttachment(
                         fallback = "",
                         color = null,
@@ -101,7 +101,17 @@ class PubSubEventListener : BackgroundFunction<PubSubMessage> {
                             text = it,
                             fields = null
                         )
-                    } ?: SlackMessageAttachment(
+                    }
+                    ?: logEntry.textPayload?.let {
+                        SlackMessageAttachment(
+                            fallback = "",
+                            color = null,
+                            pretext = "Message",
+                            text = it,
+                            fields = null
+                        )
+                    }
+                    ?: SlackMessageAttachment(
                         fallback = "",
                         color = null,
                         pretext = "No additional data",
@@ -163,5 +173,4 @@ class PubSubEventListener : BackgroundFunction<PubSubMessage> {
         LogSeverity.ALERT -> "error"
         null -> "error"
     }
-
 }
