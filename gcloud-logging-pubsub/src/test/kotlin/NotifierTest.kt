@@ -1,22 +1,23 @@
 import com.google.cloud.functions.Context
-import com.google.gson.GsonBuilder
 import io.patiently.gcloud.pubsub.PubSubEventListener
 import io.patiently.gcloud.pubsub.obj.LogSeverity
 import io.patiently.gcloud.pubsub.obj.PubSubMessage
 import org.intellij.lang.annotations.Language
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.fail
 import java.util.Base64
 
 class NotifierTest {
 
     private val pubSubEventListenerListener = PubSubEventListener()
-    private val gsonParser = GsonBuilder().create()
 
     @Test
     fun testSendSlackNotification() {
         pubSubEventListenerListener.accept(
-            payload = generatePubSubMessage(severity = LogSeverity.WARNING),
+            payload = generatePubSubMessage(
+                severity = LogSeverity.ERROR,
+                withException = true,
+                withJsonPayload = true
+            ),
             context = object : Context {
                 override fun eventId(): String {
                     TODO("Not yet implemented")
@@ -37,27 +38,22 @@ class NotifierTest {
         )
     }
 
-    @Test
-    fun testSendSlackAndVictorNotification() {
-        fail("FOO BAR")
-    }
-
-    private fun generatePubSubMessage(severity: LogSeverity): PubSubMessage =
+    private fun generatePubSubMessage(severity: LogSeverity, withJsonPayload: Boolean, withException: Boolean): PubSubMessage =
         PubSubMessage(
-            data = generateB64LogEntry(severity),
+            data = generateB64LogEntry(
+                severity = severity,
+                withJsonPayload = withJsonPayload,
+                withException = withException
+            ),
         )
 
-    private fun generateB64LogEntry(severity: LogSeverity, withJsonPayload: Boolean = false, withException: Boolean = false): String {
+    private fun generateB64LogEntry(severity: LogSeverity, withJsonPayload: Boolean, withException: Boolean): String {
 
         @Language("JSON")
         val logInfo = if (withJsonPayload) {
             val exception = if (withException) {
                 """
-                   "org.opentest4j.AssertionFailedError: FOO BAR
-                    at org.junit.jupiter.api.AssertionUtils.fail(AssertionUtils.java:43)
-                    at org.junit.jupiter.api.Assertions.fail(Assertions.java:129)
-                    at org.junit.jupiter.api.AssertionsKt.fail(Assertions.kt:24)
-                    ",
+                   "org.opentest4j.AssertionFailedError: FOO BAR \n\tat org.junit.jupiter.api.AssertionUtils.fail(AssertionUtils.java:43)\n\tat org.junit.jupiter.api.Assertions.fail(Assertions.java:129)\n\tat org.junit.jupiter.api.AssertionsKt.fail(Assertions.kt:24)"
                 """.trimIndent()
             } else {
                 "\"\""
@@ -105,6 +101,7 @@ class NotifierTest {
                 "k8s-pod/version": "1.0.27"
               },
               "logName": "projects/youcruit/logs/stdout",
+              "trace": "projects/Success(youcruit)/traces/c5e82fe7692b08ce089fbcc4dc787f75",
               "receiveTimestamp": "2021-05-04T19:47:44.020339350Z"
             }
             """.trimIndent()

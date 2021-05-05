@@ -1,13 +1,15 @@
 package io.patiently.clients.slack
 
 import com.google.gson.annotations.SerializedName
+import okhttp3.ResponseBody
+import retrofit2.Call
 import retrofit2.http.Body
 import retrofit2.http.POST
 
 interface SlackService {
 
     @POST("chat.postMessage")
-    fun postMessage(@Body message: SlackMessage)
+    fun postMessage(@Body message: SlackMessage): Call<ResponseBody>
 }
 
 data class SlackMessage(
@@ -32,7 +34,6 @@ data class SlackMessageAttachment(
     val fallback: String,
     val text: String?,
     val pretext: String?,
-    // e.g. "#36a64f", // Can either be one of 'good', 'warning', 'danger', or any hex color code
     val color: String?,
     val fields: List<Field>?,
 )
@@ -61,7 +62,9 @@ data class SlackMessageBlockText(
 
 enum class SlackMessageBlockTextType {
     @SerializedName("plain_text")
-    PLAIN_TEXT
+    PLAIN_TEXT,
+    @SerializedName("mrkdwn")
+    MARK_DOWN
 }
 
 enum class SlackMessageParseType {

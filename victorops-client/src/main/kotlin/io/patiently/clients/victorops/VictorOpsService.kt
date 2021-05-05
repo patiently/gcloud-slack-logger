@@ -1,12 +1,14 @@
 package io.patiently.clients.victorops
 
 import com.google.gson.annotations.SerializedName
+import okhttp3.ResponseBody
+import retrofit2.Call
 import retrofit2.http.Body
 import retrofit2.http.POST
 import retrofit2.http.Path
 
 interface VictorOpsService {
-    @POST("/integrations/generic/{accountId}/alert/{secretKey}/{routingKey}")
+    @POST("integrations/generic/{accountId}/alert/{secretKey}/{routingKey}")
     fun triggerAlert(
         @Path("accountId")
         accountId: String,
@@ -16,7 +18,7 @@ interface VictorOpsService {
         routingKey: String,
         @Body
         message: VictorOpsMessage
-    )
+    ): Call<ResponseBody>
 }
 
 data class VictorOpsMessage(
