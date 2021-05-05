@@ -1,10 +1,9 @@
-import kotlinVersion
-import kotlinCoroutineVersion
 import org.gradle.api.Project
 import org.gradle.api.artifacts.Dependency
 import org.gradle.api.artifacts.ModuleDependency
 import org.gradle.api.artifacts.dsl.DependencyHandler
 import org.gradle.api.tasks.bundling.Jar
+import org.gradle.api.tasks.testing.Test
 import org.gradle.kotlin.dsl.apply
 import org.gradle.kotlin.dsl.closureOf
 import org.gradle.kotlin.dsl.dependencies
@@ -26,9 +25,8 @@ fun Project.kotlinSetup() {
         implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinCoroutineVersion")
         implementation("org.kodein.di:kodein-di:$kodeinVersion")
         implementation("com.google.code.gson:gson:$gsonVersion")
-        testImplementation("org.jetbrains.kotlin:kotlin-test:$kotlinVersion")
-        testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinCoroutineVersion")
-        testImplementation("org.junit.jupiter:junit-jupiter-api:$jUnitVersion")
+        testImplementation(platform("org.junit:junit-bom:$jUnitVersion"))
+        testImplementation("org.junit.jupiter:junit-jupiter")
 
     }
 
@@ -44,12 +42,17 @@ fun Project.kotlinSetup() {
         }
     }
 
+    tasks.withType<Test> {
+        useJUnitPlatform()
+    }
+
     tasks.withType<KotlinCompile>().configureEach {
         kotlinOptions {
             languageVersion = "1.4"
             apiVersion = "1.4"
             jvmTarget = "11"
             freeCompilerArgs = listOf("-Xjsr305=strict", "-Xjvm-default=enable")
+            useIR = true
         }
     }
 

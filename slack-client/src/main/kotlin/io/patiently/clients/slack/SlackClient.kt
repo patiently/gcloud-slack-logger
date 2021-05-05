@@ -8,8 +8,9 @@ import org.kodein.di.DIAware
 import org.kodein.di.instance
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.util.logging.Logger
 
-class SlackClient(override val di: DI): DIAware{
+class SlackClient(override val di: DI) : DIAware {
 
     private val config: SlackConfig by instance()
 
@@ -21,12 +22,13 @@ class SlackClient(override val di: DI): DIAware{
                         chain.proceed(
                             chain.request().newBuilder()
                                 .addHeader("Authorization", "Bearer ${config.apiKey}")
+                                .addHeader("Content-type", "application/json")
                                 .build()
                         )
                     }
                     .build()
             )
-            .baseUrl("https://slack.com/api")
+            .baseUrl("https://slack.com/api/")
             .addConverterFactory(
                 GsonConverterFactory.create(
                     GsonBuilder()
@@ -39,6 +41,19 @@ class SlackClient(override val di: DI): DIAware{
     }
 
     fun sendMessage(message: SlackMessage) {
-        slackService.postMessage(message)
+        val call = slackService.postMessage(message)
+        val response = call.execute()
+        if (!response.isSuccessful) {
+            val errorResponse = response.errorBody()?.use {
+                it.string()
+            }
+            LOGGER.severe {
+                "Failed to send slack message: ${response.code()} $errorResponse"
+            }
+        }
+    }
+
+    companion object {
+        private val LOGGER = Logger.getLogger(SlackClient::class.java.name)
     }
 }
