@@ -8,6 +8,10 @@ import io.patiently.clients.slack.SlackClient
 import io.patiently.clients.slack.SlackConfig
 import io.patiently.clients.slack.SlackMessage
 import io.patiently.clients.slack.SlackMessageAttachment
+import io.patiently.clients.slack.SlackMessageBlock
+import io.patiently.clients.slack.SlackMessageBlockText
+import io.patiently.clients.slack.SlackMessageBlockTextType
+import io.patiently.clients.slack.SlackMessageBlockType
 import io.patiently.clients.victorops.MessageType
 import io.patiently.clients.victorops.VictorOpsClient
 import io.patiently.clients.victorops.VictorOpsMessage
@@ -19,6 +23,7 @@ import org.kodein.di.DI
 import org.kodein.di.instance
 import java.time.Instant
 import java.util.Base64
+import java.util.logging.Logger
 
 class PubSubEventListener : BackgroundFunction<PubSubMessage> {
 
@@ -33,10 +38,20 @@ class PubSubEventListener : BackgroundFunction<PubSubMessage> {
     private val victorOpsClient: VictorOpsClient by di.instance()
     private val pubSubMessageMapper: Gson by di.instance()
 
-    override fun accept(payload: PubSubMessage, context: Context) {
-        val data = String(Base64.getDecoder().decode(payload.data))
-        val logEntry = pubSubMessageMapper.fromJson(data, LogEntry::class.java)
-        processLogMessage(logEntry)
+    override fun accept(payload: PubSubMessage?, context: Context) {
+        try {
+            if (payload?.data != null) {
+                val data = String(Base64.getDecoder().decode(payload.data))
+                val logEntry = pubSubMessageMapper.fromJson(data, LogEntry::class.java)
+                processLogMessage(logEntry)
+            } else {
+                LOGGER.info { "Got a pubsub message without body" }
+            }
+        } catch (e: Exception) {
+            LOGGER.severe {
+                "${e.message}\n\n${e.stackTraceToString()}"
+            }
+        }
     }
 
     private fun processLogMessage(logEntry: LogEntry) {
@@ -48,10 +63,10 @@ class PubSubEventListener : BackgroundFunction<PubSubMessage> {
 
     private fun generateVictorOpsMessage(logEntry: LogEntry): VictorOpsMessage {
         val jsonPayload = logEntry.jsonPayload
-        val displayName = jsonPayload?.getAsJsonObject("message")?.asString
+        val displayName = jsonPayload?.get("message")?.asString
             ?: logEntry.textPayload
             ?: "No message data found"
-        val stateMessage = logEntry.jsonPayload?.getAsJsonObject("exception")?.asString
+        val stateMessage = jsonPayload?.get("exception")?.asString
             ?: ""
         val stateStartTime = logEntry.receivedTimestamp?.let {
             Instant.parse(it)
@@ -72,44 +87,106 @@ class PubSubEventListener : BackgroundFunction<PubSubMessage> {
     }
 
     private fun generateSlackMessage(logEntry: LogEntry): SlackMessage {
-        return SlackMessage(
+        val color = getColor(logEntry)
+        val exception = logEntry.jsonPayload?.get("exception")?.asString
+        val message = logEntry.jsonPayload?.get("message")?.asString
+        val textPayload = logEntry.textPayload
+        val projectId = logEntry.resource.labels?.get("project_id")
+        val consoleTraceLink = logEntry.trace?.split("/")?.last()
+            ?.let {
+                "https://console.cloud.google.com/traces/list?project=$projectId&tid=$it"
+            }
+        val cloudConsoleLink = "https://console.cloud.google.com/logs/query;query=insertId%3D%22${logEntry.insertId}%22;timeRange=P7D?project=$projectId"
+        val slackMessage = SlackMessage(
             text = null,
             channel = slackConfig.slackChannel,
             iconEmoji = getEmoji(logEntry),
+            blocks = mutableListOf(
+                SlackMessageBlock(
+                    type = SlackMessageBlockType.SECTION,
+                    text = SlackMessageBlockText(
+                        type = SlackMessageBlockTextType.MARK_DOWN,
+                        text = if (consoleTraceLink != null) {
+                            "<$cloudConsoleLink|Show log in cloud console> / <$consoleTraceLink|Show trace in cloude console>"
+                        } else {
+                            "<$cloudConsoleLink|Show log in cloud console>"
+                        }
+                    )
+                )
+            ),
             attachments = listOf(
                 SlackMessageAttachment(
                     fallback = "",
-                    color = getColor(logEntry),
+                    color = color,
                     fields = generateFields(logEntry),
                     text = null,
                     pretext = null,
                 ),
-                logEntry.jsonPayload?.get("extension")?.asString?.let {
+                exception?.let {
                     SlackMessageAttachment(
                         fallback = "",
-                        color = null,
-                        pretext = "Exception",
-                        text = it,
-                        fields = null
+                        color = color,
+                        text = null,
+                        pretext = null,
+                        fields = mutableListOf(
+                            Field(
+                                title = "Exception",
+                                value = it,
+                                shortValue = false
+                            )
+                        ).also { list ->
+                            message?.let { message ->
+                                list.add(
+                                    Field(
+                                        title = "Message",
+                                        value = message,
+                                        shortValue = true
+                                    )
+                                )
+                            }
+                        }
                     )
                 }
-                    ?: logEntry.jsonPayload?.get("message")?.asString?.let {
+                    ?: message?.let {
                         SlackMessageAttachment(
                             fallback = "",
-                            color = null,
-                            pretext = "Message",
-                            text = it,
-                            fields = null
+                            color = color,
+                            pretext = null,
+                            text = null,
+                            fields = listOf(
+                                Field(
+                                    title = "Message",
+                                    value = it,
+                                    shortValue = true
+                                )
+                            )
                         )
-                    } ?: SlackMessageAttachment(
+                    }
+                    ?: textPayload?.let {
+                        SlackMessageAttachment(
+                            fallback = "",
+                            color = color,
+                            pretext = null,
+                            text = null,
+                            fields = listOf(
+                                Field(
+                                    title = "Message",
+                                    value = it,
+                                    shortValue = true
+                                )
+                            )
+                        )
+                    }
+                    ?: SlackMessageAttachment(
                         fallback = "",
-                        color = null,
+                        color = color,
                         pretext = "No additional data",
                         text = "",
                         fields = null
                     )
             )
         )
+        return slackMessage
     }
 
     private fun generateFields(logEntry: LogEntry): List<Field> {
@@ -157,11 +234,14 @@ class PubSubEventListener : BackgroundFunction<PubSubMessage> {
     private fun getColor(logEntry: LogEntry) = when (logEntry.severity) {
         LogSeverity.DEBUG,
         LogSeverity.NOTICE,
-        LogSeverity.INFO -> "good"
+        LogSeverity.INFO -> "#339900"
         LogSeverity.WARNING,
-        LogSeverity.ERROR -> "warning"
-        LogSeverity.ALERT -> "error"
-        null -> "error"
+        LogSeverity.ERROR -> "#DAA520"
+        LogSeverity.ALERT -> "#cc3300"
+        null -> "#cc3300"
     }
 
+    companion object {
+        private val LOGGER = Logger.getLogger(PubSubEventListener::class.java.name)
+    }
 }
