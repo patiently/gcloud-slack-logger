@@ -38,22 +38,26 @@ class PubSubEventListener : BackgroundFunction<PubSubMessage> {
     private val victorOpsClient: VictorOpsClient by di.instance()
     private val pubSubMessageMapper: Gson by di.instance()
 
-    override fun accept(payload: PubSubMessage, context: Context) {
-        val data = String(Base64.getDecoder().decode(payload.data))
-        val logEntry = pubSubMessageMapper.fromJson(data, LogEntry::class.java)
-        processLogMessage(logEntry)
-    }
-
-    private fun processLogMessage(logEntry: LogEntry) {
+    override fun accept(payload: PubSubMessage?, context: Context) {
         try {
-            slackClient.sendMessage(generateSlackMessage(logEntry))
-            if (logEntry.severity == LogSeverity.ALERT) {
-                victorOpsClient.sendMessage(generateVictorOpsMessage(logEntry))
+            if (payload?.data != null) {
+                val data = String(Base64.getDecoder().decode(payload.data))
+                val logEntry = pubSubMessageMapper.fromJson(data, LogEntry::class.java)
+                processLogMessage(logEntry)
+            } else {
+                LOGGER.info { "Got a pubsub message without body" }
             }
         } catch (e: Exception) {
             LOGGER.severe {
                 "${e.message}\n\n${e.stackTraceToString()}"
             }
+        }
+    }
+
+    private fun processLogMessage(logEntry: LogEntry) {
+        slackClient.sendMessage(generateSlackMessage(logEntry))
+        if (logEntry.severity == LogSeverity.ALERT) {
+            victorOpsClient.sendMessage(generateVictorOpsMessage(logEntry))
         }
     }
 

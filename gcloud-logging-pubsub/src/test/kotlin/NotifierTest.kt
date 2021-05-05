@@ -3,6 +3,7 @@ import io.patiently.gcloud.pubsub.PubSubEventListener
 import io.patiently.gcloud.pubsub.obj.LogSeverity
 import io.patiently.gcloud.pubsub.obj.PubSubMessage
 import org.intellij.lang.annotations.Language
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import java.util.Base64
 
@@ -10,6 +11,7 @@ class NotifierTest {
 
     private val pubSubEventListenerListener = PubSubEventListener()
 
+    @Disabled
     @Test
     fun testSendSlackNotification() {
         pubSubEventListenerListener.accept(

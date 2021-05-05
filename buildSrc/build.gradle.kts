@@ -7,6 +7,7 @@ val kotlinCoroutineVersion = "1.4.2"
 dependencies {
     implementation("org.jlleitschuh.gradle:ktlint-gradle:9.4.1")
     implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
+    implementation("org.yaml:snakeyaml:1.28")
 }
 
 
