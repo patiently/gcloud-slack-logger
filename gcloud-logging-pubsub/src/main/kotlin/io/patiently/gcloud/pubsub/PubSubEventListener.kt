@@ -129,9 +129,14 @@ class PubSubEventListener : BackgroundFunction<PubSubMessage> {
                     type = SlackMessageBlockType.SECTION,
                     text = SlackMessageBlockText(
                         type = SlackMessageBlockTextType.MARK_DOWN,
-                        text = message
-                            ?: textPayload
-                            ?: "No message available for this entry?"
+                        text = (
+                            message
+                                ?: textPayload
+                                ?: "No message available for this entry?"
+                            )
+                            .let {
+                                "```$it```"
+                            }
                     )
                 )
             ),
@@ -145,16 +150,18 @@ class PubSubEventListener : BackgroundFunction<PubSubMessage> {
                 )
             ).also { list ->
                 exception?.let {
-                    list.add(
-                        SlackMessageAttachment(
-                            fallback = "",
-                            color = color,
-                            useMarkdownIn = setOf("text"),
-                            text = "*Exception*\n\n```$it```",
-                            pretext = null,
-                            fields = null,
+                    if (it.isNotBlank()) {
+                        list.add(
+                            SlackMessageAttachment(
+                                fallback = "",
+                                color = color,
+                                useMarkdownIn = setOf("text"),
+                                text = "*Exception*\n\n```$it```",
+                                pretext = null,
+                                fields = null,
+                            )
                         )
-                    )
+                    }
                 }
             }
         )
