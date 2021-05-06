@@ -36,6 +36,8 @@ data class SlackMessageAttachment(
     val pretext: String?,
     val color: String?,
     val fields: List<Field>?,
+    @SerializedName("mrkdwn_in")
+    val useMarkdownIn: Set<String>? = null,
 )
 
 data class Field(

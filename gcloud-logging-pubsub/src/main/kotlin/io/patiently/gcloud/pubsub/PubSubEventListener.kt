@@ -92,15 +92,25 @@ class PubSubEventListener : BackgroundFunction<PubSubMessage> {
         val message = logEntry.jsonPayload?.get("message")?.asString
         val textPayload = logEntry.textPayload
         val projectId = logEntry.resource.labels?.get("project_id")
-        val snippetMessage = logEntry.jsonPayload?.get("message")?.asString
-            ?: logEntry.textPayload
+        val cluster = logEntry.resource.labels?.get("cluster_name")
+            ?: "N/A"
+        val shortMessage = (
+            logEntry.jsonPayload?.get("message")?.asString
+                ?: logEntry.textPayload
+            )
+            ?.take(160)
+            ?: ""
+        val instance = logEntry.resource.labels?.get("container_name")
+            ?: "N/A"
+        val notificationMessage = "$cluster -> $instance\n $shortMessage"
         val consoleTraceLink = logEntry.trace?.split("/")?.last()
             ?.let {
                 "https://console.cloud.google.com/traces/list?project=$projectId&tid=$it"
             }
         val cloudConsoleLink = "https://console.cloud.google.com/logs/query;query=insertId%3D%22${logEntry.insertId}%22;timeRange=P7D?project=$projectId"
         return SlackMessage(
-            text = snippetMessage?.take(160),
+            text = notificationMessage,
+            enableMarkDown = true,
             channel = slackConfig.slackChannel,
             iconEmoji = getEmoji(logEntry),
             blocks = mutableListOf(
@@ -109,88 +119,51 @@ class PubSubEventListener : BackgroundFunction<PubSubMessage> {
                     text = SlackMessageBlockText(
                         type = SlackMessageBlockTextType.MARK_DOWN,
                         text = if (consoleTraceLink != null) {
-                            "<$cloudConsoleLink|Show log in cloud console> / <$consoleTraceLink|Show trace in cloude console>"
+                            "<$cloudConsoleLink|Show log in cloud console> / <$consoleTraceLink|Show trace in cloud console>"
                         } else {
                             "<$cloudConsoleLink|Show log in cloud console>"
                         }
                     )
+                ),
+                SlackMessageBlock(
+                    type = SlackMessageBlockType.SECTION,
+                    text = SlackMessageBlockText(
+                        type = SlackMessageBlockTextType.MARK_DOWN,
+                        text = message
+                            ?: textPayload
+                            ?: "No message available for this entry?"
+                    )
                 )
             ),
-            attachments = listOf(
+            attachments = mutableListOf(
                 SlackMessageAttachment(
                     fallback = "",
                     color = color,
                     fields = generateFields(logEntry),
                     text = null,
                     pretext = null,
-                ),
+                )
+            ).also { list ->
                 exception?.let {
-                    SlackMessageAttachment(
-                        fallback = "",
-                        color = color,
-                        text = null,
-                        pretext = null,
-                        fields = mutableListOf(
-                            Field(
-                                title = "Exception",
-                                value = it,
-                                shortValue = false
-                            )
-                        ).also { list ->
-                            message?.let<String, Unit> { message ->
-                                list.add(
-                                    Field(
-                                        title = "Message",
-                                        value = message,
-                                        shortValue = true
-                                    )
-                                )
-                            }
-                        }
+                    list.add(
+                        SlackMessageAttachment(
+                            fallback = "",
+                            color = color,
+                            useMarkdownIn = setOf("text"),
+                            text = "*Exception*\n\n```$it```",
+                            pretext = null,
+                            fields = null,
+                        )
                     )
                 }
-                    ?: message?.let {
-                        SlackMessageAttachment(
-                            fallback = "",
-                            color = color,
-                            pretext = null,
-                            text = null,
-                            fields = listOf(
-                                Field(
-                                    title = "Message",
-                                    value = it,
-                                    shortValue = true
-                                )
-                            )
-                        )
-                    }
-                    ?: textPayload?.let {
-                        SlackMessageAttachment(
-                            fallback = "",
-                            color = color,
-                            pretext = null,
-                            text = null,
-                            fields = listOf(
-                                Field(
-                                    title = "Message",
-                                    value = it,
-                                    shortValue = true
-                                )
-                            )
-                        )
-                    }
-                    ?: SlackMessageAttachment(
-                        fallback = "",
-                        color = color,
-                        pretext = "No additional data",
-                        text = "",
-                        fields = null
-                    )
-            )
+            }
         )
     }
 
     private fun generateFields(logEntry: LogEntry): List<Field> {
+        val clusterName = logEntry.resource.labels?.get("cluster_name")
+        val project = logEntry.resource.labels?.get("project_id")
+        val containerName = logEntry.resource.labels?.get("container_name")
         val fields = mutableListOf<Field>()
         logEntry.labels?.get("k8s-pod/app")?.let {
             fields.add(
@@ -214,6 +187,33 @@ class PubSubEventListener : BackgroundFunction<PubSubMessage> {
             fields.add(
                 Field(
                     title = "Commit",
+                    value = it,
+                    shortValue = true
+                )
+            )
+        }
+        clusterName?.let {
+            fields.add(
+                Field(
+                    title = "Cluster",
+                    value = it,
+                    shortValue = true
+                )
+            )
+        }
+        containerName?.let {
+            fields.add(
+                Field(
+                    title = "Container",
+                    value = it,
+                    shortValue = true
+                )
+            )
+        }
+        project?.let {
+            fields.add(
+                Field(
+                    title = "Cluster",
                     value = it,
                     shortValue = true
                 )
