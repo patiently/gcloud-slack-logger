@@ -141,12 +141,15 @@ class PubSubEventListener : BackgroundFunction<PubSubMessage> {
         val cloudConsoleLink =
             "https://console.cloud.google.com/logs/query;query=insertId%3D%22${logEntry.insertId}%22;timeRange=P7D?project=$projectId"
 
-        val now = Instant.now()
-        val fromTime = now.minusMillis(5)
-        val toTime = now.plusMillis(5)
-
-        val links = slackConfig.kubeProjectIds.map { pId ->
-            "$pId»https://console.cloud.google.com/logs/query;query=;timeRange=$fromTime%2F$toTime;cursorTimestamp=$now?project=$pId"
+        val logEntryLinks = if (logEntry.timestamp != null) {
+            val now = Instant.parse(logEntry.timestamp)
+            val fromTime = now.minusSeconds(2)
+            val toTime = now.plusSeconds(2)
+            slackConfig.kubeProjectIds.map { pId ->
+                "$pId»https://console.cloud.google.com/logs/query;query=severity%3E%3DINFO;timeRange=$fromTime%2F$toTime;cursorTimestamp=$now?project=$pId"
+            }
+        } else {
+            emptyList()
         }
 
         return SlackMessage(
@@ -154,7 +157,7 @@ class PubSubEventListener : BackgroundFunction<PubSubMessage> {
             enableMarkDown = true,
             channel = slackConfig.slackChannel,
             iconEmoji = getEmoji(logEntry),
-            blocks = mutableListOf(
+            blocks = listOfNotNull(
                 SlackMessageBlock(
                     type = SlackMessageBlockType.SECTION,
                     text = SlackMessageBlockText(
@@ -166,16 +169,20 @@ class PubSubEventListener : BackgroundFunction<PubSubMessage> {
                         }
                     )
                 ),
-                SlackMessageBlock(
-                    type = SlackMessageBlockType.SECTION,
-                    text = SlackMessageBlockText(
-                        type = SlackMessageBlockTextType.MARK_DOWN,
-                        text = links.joinToString(separator = " / ") {
-                            val (project, link) = it.split("»")
-                            "<$link| +/- 5 sec for $project>"
-                        }
+                if (logEntryLinks.isNotEmpty()) {
+                    SlackMessageBlock(
+                        type = SlackMessageBlockType.SECTION,
+                        text = SlackMessageBlockText(
+                            type = SlackMessageBlockTextType.MARK_DOWN,
+                            text = logEntryLinks.joinToString(separator = " / ") {
+                                val (project, link) = it.split("»")
+                                "<$link| +/- 5 sec for $project>"
+                            }
+                        )
                     )
-                ),
+                } else {
+                    null
+                },
                 SlackMessageBlock(
                     type = SlackMessageBlockType.SECTION,
                     text = SlackMessageBlockText(
