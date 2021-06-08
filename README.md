@@ -67,6 +67,7 @@ projectId: [projectId]
 pubSub: GSLACK_LOG_EVENTS
 SLACK_API_KEY: xoxb-
 SLACK_CHANNEL: channel
+KUBE_PROJECT_IDS: [list of your kube project ids separated with ,]
 VICTOR_OPS_ACCOUNT_ID: [victorCompanyId]
 VICTOR_OPS_SECRET_KEY: [victorSecretKey]
 VICTOR_OPS_ROUTING_KEY: [victorRoutingKey]

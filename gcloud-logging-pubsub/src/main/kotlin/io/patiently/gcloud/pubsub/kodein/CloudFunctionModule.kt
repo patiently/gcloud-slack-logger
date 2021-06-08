@@ -22,6 +22,14 @@ val cloudFunctionModule = DI.Module(name = "cloudFunctionModule") {
             override val slackChannel: String
                 get() = System.getenv("SLACK_CHANNEL")
                     ?: exitProcess(1)
+
+            override val kubeProjectIds: List<String>
+                get() = System.getenv("KUBE_PROJECT_IDS")
+                    ?.split(",")
+                    ?.map {
+                        it.trim()
+                    }
+                    ?: exitProcess(1)
         }
     }
     bind<VictorOpsConfig>() with factory {
