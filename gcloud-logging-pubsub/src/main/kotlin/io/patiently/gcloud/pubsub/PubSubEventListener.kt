@@ -170,20 +170,9 @@ class PubSubEventListener : BackgroundFunction<PubSubMessage> {
                     type = SlackMessageBlockType.SECTION,
                     text = SlackMessageBlockText(
                         type = SlackMessageBlockTextType.MARK_DOWN,
-                        text = links.joinToString(postfix = " / ") {
+                        text = links.joinToString(separator = " / ") {
                             val (project, link) = it.split("»")
                             "<$link| +/- 5 sec for $project>"
-                        }
-                    )
-                ),
-                SlackMessageBlock(
-                    type = SlackMessageBlockType.SECTION,
-                    text = SlackMessageBlockText(
-                        type = SlackMessageBlockTextType.MARK_DOWN,
-                        text = if (consoleTraceLink != null) {
-                            "<$cloudConsoleLink|Show log in cloud console> / <$consoleTraceLink|Show trace in cloud console>"
-                        } else {
-                            "<$cloudConsoleLink|Show log in cloud console>"
                         }
                     )
                 ),
