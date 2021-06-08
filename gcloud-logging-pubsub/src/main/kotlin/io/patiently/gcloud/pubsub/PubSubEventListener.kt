@@ -143,8 +143,8 @@ class PubSubEventListener : BackgroundFunction<PubSubMessage> {
 
         val logEntryLinks = if (logEntry.timestamp != null) {
             val now = Instant.parse(logEntry.timestamp)
-            val fromTime = now.minusSeconds(2)
-            val toTime = now.plusSeconds(2)
+            val fromTime = now.minusSeconds(3)
+            val toTime = now.plusSeconds(3)
             slackConfig.kubeProjectIds.map { pId ->
                 "$pId»https://console.cloud.google.com/logs/query;query=severity%3E%3DINFO;timeRange=$fromTime%2F$toTime;cursorTimestamp=$now?project=$pId"
             }
@@ -176,7 +176,7 @@ class PubSubEventListener : BackgroundFunction<PubSubMessage> {
                             type = SlackMessageBlockTextType.MARK_DOWN,
                             text = logEntryLinks.joinToString(separator = " / ") {
                                 val (project, link) = it.split("»")
-                                "<$link| +/- 5 sec for $project>"
+                                "<$link| +/- 3 sec for $project>"
                             }
                         )
                     )
