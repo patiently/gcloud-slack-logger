@@ -220,7 +220,7 @@ class PubSubEventListener : BackgroundFunction<PubSubMessage> {
         project?.let {
             fields.add(
                 Field(
-                    title = "Cluster",
+                    title = "Project",
                     value = it,
                     shortValue = true
                 )
