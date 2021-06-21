@@ -64,9 +64,22 @@ class PubSubEventListener : BackgroundFunction<PubSubMessage> {
 
     private fun processLogMessage(logEntry: LogEntry) {
         slackClient.sendMessage(generateSlackMessage(logEntry))
-        if (logEntry.severity == LogSeverity.ALERT) {
+        if (triggerVictorOps(logEntry)) {
             victorOpsClient.sendMessage(generateVictorOpsMessage(logEntry))
         }
+    }
+
+    private fun triggerVictorOps(logEntry: LogEntry): Boolean {
+        val message = logEntry.jsonPayload?.get("message")?.asString
+            ?: logEntry.textPayload
+            ?: "No message data found"
+        val exception = logEntry.jsonPayload?.get("exception")?.asString
+            ?: ""
+        return if (logEntry.severity == LogSeverity.ALERT) {
+            true
+        } else if (message.contains("cpu time used to GC")) {
+            true
+        } else exception.contains("java.lang.OutOfMemoryError")
     }
 
     private fun getDnsName(ipAddress: String?): String? {
