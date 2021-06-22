@@ -26,6 +26,7 @@ import org.kodein.di.instance
 import org.xbill.DNS.Lookup
 import org.xbill.DNS.ReverseMap
 import org.xbill.DNS.Type
+import java.time.Duration
 import java.time.Instant
 import java.util.Base64
 import java.util.logging.Logger
@@ -44,6 +45,9 @@ class PubSubEventListener : BackgroundFunction<PubSubMessage> {
     private val pubSubMessageMapper: Gson by di.instance()
     private val dnsCache: Cache<String, String> = CacheBuilder.newBuilder()
         .maximumSize(10000)
+        .build()
+    private val oomCache: Cache<String, Instant> = CacheBuilder.newBuilder()
+        .expireAfterWrite(Duration.ofMinutes(5))
         .build()
 
     override fun accept(payload: PubSubMessage?, context: Context) {
@@ -70,6 +74,7 @@ class PubSubEventListener : BackgroundFunction<PubSubMessage> {
     }
 
     private fun triggerVictorOps(logEntry: LogEntry): Boolean {
+        val containerName = logEntry.resource.labels?.get("container_name")
         val message = logEntry.jsonPayload?.get("message")?.asString
             ?: logEntry.textPayload
             ?: "No message data found"
@@ -77,9 +82,20 @@ class PubSubEventListener : BackgroundFunction<PubSubMessage> {
             ?: ""
         return if (logEntry.severity == LogSeverity.ALERT) {
             true
-        } else if (message.contains("cpu time used to GC")) {
-            true
-        } else exception.contains("java.lang.OutOfMemoryError")
+        } else if (
+            containerName != null &&
+            (message.contains("cpu time used to GC") || exception.contains("java.lang.OutOfMemoryError"))
+        ) {
+            val alreadyTriggered: Instant? = oomCache.getIfPresent(containerName)
+            if (alreadyTriggered != null) {
+                false
+            } else {
+                oomCache.put(containerName, Instant.now())
+                true
+            }
+        } else {
+            false
+        }
     }
 
     private fun getDnsName(ipAddress: String?): String? {
