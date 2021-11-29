@@ -81,7 +81,7 @@ class PubSubEventListener : BackgroundFunction<PubSubMessage> {
         val exception = logEntry.jsonPayload?.get("exception")?.asString
             ?: ""
         return if (logEntry.severity == LogSeverity.ALERT) {
-            true
+            !message.contains("has no server available")
         } else if (
             containerName != null &&
             (message.contains("cpu time used to GC") || exception.contains("java.lang.OutOfMemoryError"))
