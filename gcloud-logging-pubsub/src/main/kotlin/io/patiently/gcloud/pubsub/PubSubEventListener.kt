@@ -192,7 +192,7 @@ class PubSubEventListener : BackgroundFunction<PubSubMessage> {
                     text = SlackMessageBlockText(
                         type = SlackMessageBlockTextType.MARK_DOWN,
                         text = if (consoleTraceLink != null) {
-                            "<$cloudConsoleLink|Show log in cloud console> (<$cloudConsoleLink&authuser=1|1>, <$cloudConsoleLink&authuser=2|2>, <$cloudConsoleLink&authuser=3|3>) / <$consoleTraceLink|Show trace in cloud console> <$consoleTraceLink&authuser=1|1>, <$consoleTraceLink&authuser=2|2>, <$consoleTraceLink&authuser=3|3>"
+                            "<$cloudConsoleLink|Show log in cloud console> (<$cloudConsoleLink&authuser=1|1>, <$cloudConsoleLink&authuser=2|2>, <$cloudConsoleLink&authuser=3|3>) / <$consoleTraceLink|Show trace in cloud console> (<$consoleTraceLink&authuser=1|1>, <$consoleTraceLink&authuser=2|2>, <$consoleTraceLink&authuser=3|3>)"
                         } else {
                             "<$cloudConsoleLink|Show log in cloud console> (<$cloudConsoleLink&authuser=1|1>, <$cloudConsoleLink&authuser=2|2>, <$cloudConsoleLink&authuser=3|3>)"
                         }
