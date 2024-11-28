@@ -123,16 +123,21 @@ class PubSubEventListener : BackgroundFunction<PubSubMessage> {
 
     private fun generateGoAlertMessage(logEntry: LogEntry): GoAlertMessage {
         val jsonPayload = logEntry.jsonPayload
+        val message = jsonPayload?.get("message")?.asString
         val stateMessage = jsonPayload?.get("exception")?.asString
-            ?: ""
+            ?: logEntry.textPayload
+            ?: message
+            ?: "No message or exception provided"
         val clusterName = logEntry.resource.labels?.get("cluster_name") ?: "N/A"
         val project = logEntry.resource.labels?.get("project_id") ?: "N/A"
         val containerName = logEntry.resource.labels?.get("container_name") ?: "N/A"
-        val annotation = "$clusterName -> $project -> $containerName"
-        return GoAlertMessage(
+        val annotation = "$clusterName -> $project -> $containerName -> ${logEntry.insertId}"
+        val dedupe = jsonPayload?.get("message")?.asString
+            ?: annotation
+            return GoAlertMessage(
             summary = annotation,
-            details = jsonPayload?.asString ?: "No JsonPayload exists",
-            dedupe = stateMessage,
+            details = stateMessage,
+            dedupe = dedupe,
             action = Action.DOWN
         )
     }
