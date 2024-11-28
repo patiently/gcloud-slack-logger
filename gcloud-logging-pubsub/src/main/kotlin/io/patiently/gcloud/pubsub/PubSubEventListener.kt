@@ -14,22 +14,22 @@ import io.patiently.clients.slack.SlackMessageBlock
 import io.patiently.clients.slack.SlackMessageBlockText
 import io.patiently.clients.slack.SlackMessageBlockTextType
 import io.patiently.clients.slack.SlackMessageBlockType
-import io.patiently.clients.victorops.MessageType
-import io.patiently.clients.victorops.VictorOpsClient
-import io.patiently.clients.victorops.VictorOpsMessage
+import io.patiently.clients.victorops.Action
+import io.patiently.clients.victorops.GoAlertClient
+import io.patiently.clients.victorops.GoAlertMessage
 import io.patiently.gcloud.pubsub.kodein.cloudFunctionModule
 import io.patiently.gcloud.pubsub.obj.LogEntry
 import io.patiently.gcloud.pubsub.obj.LogSeverity
 import io.patiently.gcloud.pubsub.obj.PubSubMessage
+import java.time.Duration
+import java.time.Instant
+import java.util.Base64
+import java.util.logging.Logger
 import org.kodein.di.DI
 import org.kodein.di.instance
 import org.xbill.DNS.Lookup
 import org.xbill.DNS.ReverseMap
 import org.xbill.DNS.Type
-import java.time.Duration
-import java.time.Instant
-import java.util.Base64
-import java.util.logging.Logger
 
 class PubSubEventListener : BackgroundFunction<PubSubMessage> {
 
@@ -41,7 +41,7 @@ class PubSubEventListener : BackgroundFunction<PubSubMessage> {
 
     private val slackClient: SlackClient by di.instance()
     private val slackConfig: SlackConfig by di.instance()
-    private val victorOpsClient: VictorOpsClient by di.instance()
+    private val goAlertClient: GoAlertClient by di.instance()
     private val pubSubMessageMapper: Gson by di.instance()
     private val dnsCache: Cache<String, String> = CacheBuilder.newBuilder()
         .maximumSize(10000)
@@ -68,12 +68,12 @@ class PubSubEventListener : BackgroundFunction<PubSubMessage> {
 
     private fun processLogMessage(logEntry: LogEntry) {
         slackClient.sendMessage(generateSlackMessage(logEntry))
-        if (triggerVictorOps(logEntry)) {
-            victorOpsClient.sendMessage(generateVictorOpsMessage(logEntry))
+        if (triggerAlerting(logEntry)) {
+            goAlertClient.sendMessage(generateGoAlertMessage(logEntry))
         }
     }
 
-    private fun triggerVictorOps(logEntry: LogEntry): Boolean {
+    private fun triggerAlerting(logEntry: LogEntry): Boolean {
         val containerName = logEntry.resource.labels?.get("container_name")
         val message = logEntry.jsonPayload?.get("message")?.asString
             ?: logEntry.textPayload
@@ -121,28 +121,19 @@ class PubSubEventListener : BackgroundFunction<PubSubMessage> {
         }
     }
 
-    private fun generateVictorOpsMessage(logEntry: LogEntry): VictorOpsMessage {
+    private fun generateGoAlertMessage(logEntry: LogEntry): GoAlertMessage {
         val jsonPayload = logEntry.jsonPayload
-        val displayName = jsonPayload?.get("message")?.asString
-            ?: logEntry.textPayload
-            ?: "No message data found"
         val stateMessage = jsonPayload?.get("exception")?.asString
             ?: ""
-        val stateStartTime = logEntry.receivedTimestamp?.let {
-            Instant.parse(it)
-        } ?: Instant.now()
         val clusterName = logEntry.resource.labels?.get("cluster_name") ?: "N/A"
         val project = logEntry.resource.labels?.get("project_id") ?: "N/A"
         val containerName = logEntry.resource.labels?.get("container_name") ?: "N/A"
         val annotation = "$clusterName -> $project -> $containerName"
-        return VictorOpsMessage(
-            messageType = MessageType.CRITICAL,
-            entityId = logEntry.insertId
-                ?: "No id found",
-            entityDisplayName = displayName,
-            stateMessage = stateMessage,
-            stateStartTime = stateStartTime.epochSecond,
-            annotation = annotation
+        return GoAlertMessage(
+            summary = annotation,
+            details = jsonPayload?.asString ?: "No JsonPayload exists",
+            dedupe = stateMessage,
+            action = Action.DOWN
         )
     }
 

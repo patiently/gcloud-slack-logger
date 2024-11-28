@@ -12,8 +12,8 @@ application {
 project.setProperty("mainClassName", "io.patiently.gcloud.pubsub.PubSubEventListenerKt")
 
 dependencies {
+    implementation(project(":goalert-client"))
     implementation(project(":slack-client"))
-    implementation(project(":victorops-client"))
     implementation("com.google.code.gson:gson")
     implementation("com.google.cloud.functions:functions-framework-api:$functionsFrameworkApiVersion")
     implementation("dnsjava:dnsjava:$dnsJavaVersion")
@@ -48,11 +48,12 @@ tasks.register("deployFunction") {
                     "deploy",
                     "gcloud-slack-logger",
                     "--entry-point=io.patiently.gcloud.pubsub.PubSubEventListener",
-                    "--runtime=java11",
+                    "--runtime=java17",
                     "--source=build/deploy",
                     "--trigger-topic=$pubSub",
                     "--project=$projectId",
-                    "--env-vars-file=$envFile"
+                    "--env-vars-file=$envFile",
+                    "--docker-registry=artifact-registry"
                 )
             )
         }

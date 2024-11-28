@@ -43,7 +43,7 @@ You should also have `gcloud` installed and configured so that it can access
 the projects where you want to deploy the cloud function.
 
 ### Development environment
-You need Java 11 and Gradle installed on your developer machine.
+You need Java 17 and Gradle 7.6.3+ installed on your developer machine.
 
 ## Getting started
 
@@ -71,6 +71,7 @@ KUBE_PROJECT_IDS: [list of your kube project ids separated with ,]
 VICTOR_OPS_ACCOUNT_ID: [victorCompanyId]
 VICTOR_OPS_SECRET_KEY: [victorSecretKey]
 VICTOR_OPS_ROUTING_KEY: [victorRoutingKey]
+GO_ALERT_TOKEN: [goAlertToken]
 ```
 Then you can just call the `deployFunction` from gradle 
 
